@@ -139,18 +139,18 @@ def test_model(tree: DecisionTreeClassifier, test: tuple) -> None:
 def compute_information_gain(train_data: np.ndarray,
                              train_label: np.ndarray,
                              feature: (str, float),
-                             feature_names) -> None:
+                             feature_name_list) -> None:
     """
     Compute the information gain on training set for the given feature
 
     :param train_data: training set
     :param train_label: training labels
     :param feature: the feature to split, given as the name of the feature
-    :param feature_names: list of feature names
+    :param feature_name_list: list of feature names
     """
 
-    # get the index of the feature
-    feature_index = np.where(feature_names == feature[0])
+    # get the column of the feature
+    feature_index = np.where(feature_name_list == feature[0])[0]
     train_label = np.where(train_label == "real", 1.0, 0.0)
 
     # merge the training set and training labels
@@ -161,15 +161,13 @@ def compute_information_gain(train_data: np.ndarray,
     fake_count = np.count_nonzero(data[:, -1] == 0)
 
     # compute initial entropy
-    initial_entropy = - (real_count / (real_count + fake_count)) * np.log2(real_count / (real_count + fake_count)) - (
-            fake_count / (real_count + fake_count)) * np.log2(fake_count / (real_count + fake_count))
+    initial_entropy = - (real_count / data.shape[0]) * np.log2(real_count / data.shape[0]) - (
+            fake_count / data.shape[0]) * np.log2(fake_count / data.shape[0])
 
     # split the data based on the given feature and its value
-    cond = data[:, feature_index[0]] < feature[1]
-    left_index = np.where(cond)
-    right_index = np.where(~cond)
-    left = data[left_index[0]]
-    right = data[right_index[0]]
+    cond = data[:, feature_index] < feature[1]
+    left_index, right_index = np.where(cond), np.where(~cond)
+    left, right = data[left_index[0]], data[right_index[0]]
 
     # count the number of real and fake news in the left and right split
     left_real_count = np.count_nonzero(left[:, -1] == 1)
@@ -186,9 +184,25 @@ def compute_information_gain(train_data: np.ndarray,
                                    right.shape[0] / data.shape[0] * right_entropy
 
     # compute information gain
-
     information_gain = initial_entropy - expected_conditional_entropy
 
     print(f"Information gain for feature {feature[0]} with value {feature[1]}: {information_gain}")
+
+if __name__ == "__main__":
+    train, val, test, feature_names = dtree.load_data()
+    best = dtree.select_model(train, val, feature_names)
+    dtree.test_model(best, test)
+
+    # get the index of feature named trump
+    top_5 = [("trump", 0.056),
+             ("trumps", 0.162),
+             ("hillary", 0.069),
+             ("trump", 0.051),
+             ("the", 0.325)]
+
+    for entry in top_5:
+        dtree.compute_information_gain(train[0].toarray(), train[1], entry, feature_names)
+
+
 
 
