@@ -1,0 +1,6 @@
+scipy
+numpy
+autograd
+matplotlib
+jupyter
+scikit-learn
