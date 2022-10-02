@@ -51,58 +51,49 @@ def select_model(train: list, val: list, feature_names: list) -> DecisionTreeCla
     max_depth = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     criterion = ["gini", "entropy", "log_loss"]
 
-    # generate all possible combinations of hyperparameters
-    parameters = product(max_depth, criterion)
-
     # train a model for each combination of hyperparameters
-    for depth, crit in parameters:
-        clf = DecisionTreeClassifier(max_depth=depth, criterion=crit, random_state=42)
-        clf.fit(train[0], train[1])
-        trees.append(clf)
-
-    # compute accuracy
-    accuracies = []
-    for tree in trees:
-        accuracies.append(tree.score(val[0], val[1]))
+    for crit in criterion:
+        crit_trees = []
+        for depth in max_depth:
+            clf = DecisionTreeClassifier(max_depth=depth, criterion=crit, random_state=42)
+            clf.fit(train[0], train[1])
+            crit_trees.append((clf, clf.score(val[0], val[1])))
+        trees.append(crit_trees)
 
     # print out accuracy
-    for i, tree in enumerate(trees):
-        print(f"Accuracy for the model trained with max depth {tree.get_depth()} and criterion {tree.criterion}:"
-              f" {accuracies[i]}")
+    for i, crit in enumerate(trees):
+        for j, tree in enumerate(crit):
+            print(f"Accuracy for {criterion[i]} with max_depth {max_depth[j]}: {tree[1]}")
 
     # print the hyperparameters for the model with the highest accuracy
-    print(
-        f'The model with the highest accuracy is trained with max depth'
-        f' {trees[accuracies.index(max(accuracies))].get_depth()} '
-        f'and criterion {trees[accuracies.index(max(accuracies))].criterion}')
+    best = max(max(trees, key=lambda x: max(x, key=lambda y: y[1])[1]), key=lambda x: x[1])
+    print(f"Best model: {best[0].criterion} with max_depth {best[0].max_depth}")
 
     # plot the accuracy for each model as function of max depth
-    plot_accuracy(trees, accuracies)
+    plot_accuracy(trees)
 
     # visualize the decision tree with the highest accuracy
-    visualize_tree(trees[accuracies.index(max(accuracies))], feature_names)
+    visualize_tree(best[0], feature_names)
 
     # for testing
-    return trees[accuracies.index(max(accuracies))]
+    return best[0]
 
 
-def plot_accuracy(trees: List[DecisionTreeClassifier], accuracies: list) -> None:
+def plot_accuracy(trees: list) -> None:
     """
     Plot the accuracy for each model as function of max depth.
 
     :param trees: list of decision tree models
-    :param accuracies: list of accuracies for each model
-
     """
 
-    # generate a list of depth for each model
-    depths = [tree.get_depth() for tree in trees]
+    # plot one line for each criterion
+    # max_depth starts at 1, so we need to add 1 to the index
+    for i, crit in enumerate(trees):
+        plt.plot(range(1, len(crit)+1), [x[1] for x in crit], label=crit[0][0].criterion)
 
-    # plot the accuracy for each model as function of max depth
-    plt.plot(depths, accuracies)
-    plt.xlabel("Max Depth")
-    plt.ylabel("Accuracy")
-    plt.title("Accuracy as a function of max depth")
+    plt.xlabel("max_depth")
+    plt.ylabel("accuracy")
+    plt.legend()
     plt.show()
 
 
@@ -186,12 +177,13 @@ def compute_information_gain(train_data: np.ndarray,
     # compute information gain
     information_gain = initial_entropy - expected_conditional_entropy
 
-    print(f"Information gain for feature {feature[0]} with value {feature[1]}: {information_gain}")
+    print(f"Information gain for feature {feature[0]} with threshold {feature[1]}: {information_gain}")
+
 
 if __name__ == "__main__":
-    train, val, test, feature_names = dtree.load_data()
-    best = dtree.select_model(train, val, feature_names)
-    dtree.test_model(best, test)
+    train, val, test, feature_names = load_data()
+    best = select_model(train, val, feature_names)
+    test_model(best, test)
 
     # get the index of feature named trump
     top_5 = [("trump", 0.056),
@@ -201,8 +193,4 @@ if __name__ == "__main__":
              ("the", 0.325)]
 
     for entry in top_5:
-        dtree.compute_information_gain(train[0].toarray(), train[1], entry, feature_names)
-
-
-
-
+        compute_information_gain(train[0].toarray(), train[1], entry, feature_names)
